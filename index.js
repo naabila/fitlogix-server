@@ -32,6 +32,31 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@mngo1.m
   })
 }
 
+  // use verify admin after verifyToken
+  const verifyAdmin = async (req, res, next) => {
+    const email = req.decoded.email;
+    const query = { email: email };
+    const user = await userCollection.findOne(query);
+    const isAdmin = user?.role === 'admin';
+    if (!isAdmin) {
+      return res.status(403).send({ message: 'forbidden access' });
+    }
+    next();
+  }
+
+  // use verify admin after verifyToken
+  const verifyTrainer = async (req, res, next) => {
+    const email = req.decoded.email;
+    const query = { email: email };
+    const user = await userCollection.findOne(query);
+    const isTrainer = user?.role === 'trainer';
+    if (!isTrainer) {
+      return res.status(403).send({ message: 'forbidden access' });
+    }
+    next();
+  }
+
+
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
@@ -69,10 +94,15 @@ app.post("/users",async(req,res)=>{
     }
     const result=await userCollection.insertOne(user);
     res.send(result);
-})
+});
 app.get("/users",async(req,res)=>{
     const result=await userCollection.find().toArray();
     res.send(result)
+});
+app.get("/users/role/:email",async(req,res)=>{
+  const email=req.params.email;
+  const result=await userCollection.findOne({email});
+  res.send({role:result?.role});
 })
 
     // Send a ping to confirm a successful connection
