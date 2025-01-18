@@ -72,7 +72,7 @@ async function run() {
     await client.connect();
     const database = client.db("fitnessDB");
     const userCollection = database.collection("users");
-
+    const appliedTrainerCollection=database.collection('trainerApplication');
 
 // ================================================================================= User Data=======
 // jwt
@@ -105,7 +105,52 @@ app.get("/users/role/:email",async(req,res)=>{
   res.send({role:result?.role});
 })
 
-    // Send a ping to confirm a successful connection
+// ============================================================================================================================================Admin========================================================================================
+
+// ============================================================================================================================================Trainer========================================================================================
+app.post("/appliedtrainer",async(req,res)=>{
+  const applicationData=req.body;
+  const result=await appliedTrainerCollection.insertOne(applicationData);
+  res.send(result);
+})
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
