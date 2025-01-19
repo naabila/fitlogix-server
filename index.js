@@ -12,7 +12,7 @@ app.use(express.json());
 
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@mngo1.mrkjr.mongodb.net/?retryWrites=true&w=majority&appName=mngo1`;
 
 //token verification
@@ -20,10 +20,13 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@mngo1.m
  const verifyToken = (req, res, next) => {
   
   if (!req.headers.authorization) {
+    console.log('No Authorization Header Found');
     return res.status(401).send({ message: 'unauthorized access' });
   }
   const token = req.headers.authorization.split(' ')[1];
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+  console.log('Token:', token);
+
+  jwt.verify(token, process.env.TOKEN_SECRET, (err, decoded) => {
     if (err) {
       return res.status(401).send({ message: 'unauthorized access' })
     }
@@ -32,7 +35,28 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@mngo1.m
   })
 }
 
-  // use verify admin after verifyToken
+  
+
+
+// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  }
+});
+
+async function run() {
+  try {
+    // Connect the client to the server	(optional starting in v4.7)
+    await client.connect();
+    const database = client.db("fitnessDB");
+    const userCollection = database.collection("users");
+    const appliedTrainerCollection=database.collection('trainerApplication');
+
+    // middlewares
+    // use verify admin after verifyToken
   const verifyAdmin = async (req, res, next) => {
     const email = req.decoded.email;
     const query = { email: email };
@@ -55,30 +79,11 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@mngo1.m
     }
     next();
   }
-
-
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  }
-});
-
-async function run() {
-  try {
-    // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
-    const database = client.db("fitnessDB");
-    const userCollection = database.collection("users");
-    const appliedTrainerCollection=database.collection('trainerApplication');
-
 // ================================================================================= User Data=======
 // jwt
 app.post("/jwt",async(req,res)=>{
   const user=req.body;
-  const token=jwt.sign(user,process.env.TOKEN_SECRET,{expiresIn:"24h"});
+  const token=jwt.sign(user,process.env.TOKEN_SECRET,{expiresIn: '365d'});
   res.send({token});
 })
 app.post("/users",async(req,res)=>{
@@ -107,6 +112,12 @@ app.get("/users/role/:email",async(req,res)=>{
 
 // ============================================================================================================================================Admin========================================================================================
 
+
+
+
+
+
+
 // ============================================================================================================================================Trainer========================================================================================
 app.post("/appliedtrainer",async(req,res)=>{
   const applicationData=req.body;
@@ -114,7 +125,18 @@ app.post("/appliedtrainer",async(req,res)=>{
   res.send(result);
 })
     
+app.get('/appliedtrainer',async(req,res)=>{
+const result=await appliedTrainerCollection.find().toArray();
+res.send(result)
+});
 
+
+app.get("/appliedtrainerdetails/:id",verifyToken,verifyAdmin,async(req,res)=>{
+  const trainerId=req.params.id;
+  const query={_id:new ObjectId(trainerId)};
+  const result=await appliedTrainerCollection.findOne(query);
+  res.send(result);
+})
 
 
 
