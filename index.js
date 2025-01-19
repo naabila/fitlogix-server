@@ -54,6 +54,7 @@ async function run() {
     const database = client.db("fitnessDB");
     const userCollection = database.collection("users");
     const appliedTrainerCollection=database.collection('trainerApplication');
+    const trainerCollection=database.collection('trainers');
 
     // middlewares
     // use verify admin after verifyToken
@@ -111,6 +112,70 @@ app.get("/users/role/:email",async(req,res)=>{
 })
 
 // ============================================================================================================================================Admin========================================================================================
+//accept trainer
+app.post("/accepttrainer", async (req, res) => {
+  const data = req.body; 
+  console.log("Received Data:", data);
+
+  if (!data._id) {
+    return res.status(400).send({ error: "Invalid ID" });
+  }
+
+  try {
+    
+    const query = { _id: new ObjectId(data._id) };
+
+    // Find the application data from `appliedTrainerCollection`
+    const appliedTrainer = await appliedTrainerCollection.findOne(query);
+
+    if (!appliedTrainer) {
+      return res.status(404).send({ error: "Trainer application not found" });
+    }
+
+    // Modify the data before inserting into `trainerCollection`
+    const trainerData = {
+      ...appliedTrainer, 
+      role: "trainer",   
+      status: "accepted" 
+    };
+
+    // Insert the modified data into `trainerCollection`
+    const insertToTrainer = await trainerCollection.insertOne(trainerData);
+    console.log("Insert Result:", insertToTrainer);
+
+    if (!insertToTrainer.insertedId) {
+      return res.status(500).send({ error: "Failed to insert trainer" });
+    }
+
+    // Update the role of the user in `userCollection` to "trainer"
+    const updateUserRole = await userCollection.updateOne(
+      { email: appliedTrainer.email }, 
+      { $set: { role: "trainer" } }    
+    );
+    console.log("User Role Update Result:", updateUserRole);
+
+    if (updateUserRole.matchedCount === 0) {
+      return res.status(404).send({ error: "User not found to update role" });
+    }
+
+    // Remove the application from `appliedTrainerCollection`
+    const deleteFromTrainerApplicationCollection = await appliedTrainerCollection.deleteOne(query);
+    console.log("Delete Result:", deleteFromTrainerApplicationCollection);
+
+    if (deleteFromTrainerApplicationCollection.deletedCount === 0) {
+      return res.status(500).send({ error: "Failed to delete trainer application" });
+    }
+
+    // Send success response
+    res.send(insertToTrainer);
+
+  } catch (error) {
+    console.error("Error processing trainer data:", error);
+    res.status(500).send({ error: "Internal server error", details: error.message });
+  }
+});
+
+
 
 
 
