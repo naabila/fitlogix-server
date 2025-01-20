@@ -181,8 +181,59 @@ app.get("/trainers",async(req,res)=>{
   res.send(result)
 })
 
+//single trainer
+app.get("/trainer/:id",async(req,res)=>{
+  const id=req.params.id;
+  const query={_id:new ObjectId(id)};
+  const result=await trainerCollection.findOne(query);
+  res.send(result);
+})
 
+//delete trainer
+// Delete trainer route
+app.delete('/deletetrainer/:id', async (req, res) => {
+  const id = req.params.id;
+  const query = { _id: new ObjectId(id) };
 
+  try {
+    // Step 1: Find the trainer by ID
+    const trainer = await trainerCollection.findOne(query);
+    if (!trainer) {
+      return res.status(404).send({ message: "Trainer not found" });
+    }
+
+    // Step 2: Delete the trainer
+    const deleteResult = await trainerCollection.deleteOne(query);
+
+    //  Update the user's role to 'member' in the user collection
+    if (deleteResult.deletedCount > 0) {
+      const userEmail = trainer.email; // Extract the trainer's email
+      const userQuery = { email: userEmail };
+      const updateResult = await userCollection.updateOne(
+        userQuery,
+        { $set: { role: "member" } }
+      );
+
+      // Respond based on the result
+      if (updateResult.modifiedCount > 0) {
+        return res.send({
+          message: "Trainer deleted and user role updated successfully",
+          deleteResult,
+        });
+      } else {
+        return res.send({
+          message: "Trainer deleted, but user role update failed or was unnecessary",
+          deleteResult,
+        });
+      }
+    }
+
+    res.send({ message: "Trainer deletion failed" });
+  } catch (err) {
+    console.error("Error deleting trainer and updating user role:", err);
+    res.status(500).send({ message: "Internal server error", error: err });
+  }
+});
 
 
 
