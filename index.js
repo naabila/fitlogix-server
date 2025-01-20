@@ -175,6 +175,12 @@ app.post("/accepttrainer", async (req, res) => {
   }
 });
 
+//all trainer
+app.get("/trainers",async(req,res)=>{
+  const result=await trainerCollection.find().toArray();
+  res.send(result)
+})
+
 
 
 
