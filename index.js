@@ -55,7 +55,8 @@ async function run() {
     const userCollection = database.collection("users");
     const appliedTrainerCollection=database.collection('trainerApplication');
     const trainerCollection=database.collection('trainers');
-
+    const subscriptionCollection=database.collection('subscription');
+    const classCollection=database.collection('class');
     // middlewares
     // use verify admin after verifyToken
   const verifyAdmin = async (req, res, next) => {
@@ -235,7 +236,23 @@ app.delete('/deletetrainer/:id', async (req, res) => {
   }
 });
 
+//newsletter
+app.post('/newsletter',async(req,res)=>{
+  const data=req.body;
+  const result=await subscriptionCollection.insertOne(data);
+  res.send(result)
+})
+app.get('/newsletter',async(req,res)=>{
+  const result=await subscriptionCollection.find().toArray();
+  res.send(result)
+})
 
+//add class
+app.post("/addclasses",verifyToken,verifyAdmin,async(req,res)=>{
+  const data=req.body;
+  const result=await classCollection.insertOne(data);
+  res.send(result);
+})
 
 
 
