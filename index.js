@@ -57,6 +57,7 @@ async function run() {
     const trainerCollection=database.collection('trainers');
     const subscriptionCollection=database.collection('subscription');
     const classCollection=database.collection('class');
+    const rejectedTrainerCollection=database.collection('reject');
     // middlewares
     // use verify admin after verifyToken
   const verifyAdmin = async (req, res, next) => {
@@ -176,6 +177,26 @@ app.post("/accepttrainer", async (req, res) => {
   }
 });
 
+//reject trainer
+app.post("/rejecttrainer",verifyToken,verifyAdmin,async(req,res)=>{
+  const data=req.body;
+ const result=await rejectedTrainerCollection.insertOne(data);
+ const query={email:data.email};
+const deleteApplicant=await appliedTrainerCollection.deleteOne(query);
+ res.send(result);
+});
+
+//get rejecteed trainer based on id
+app.get('/rejectedtrainer/:email',verifyToken,async(req,res)=>{
+  const email=req.params.email;
+  if (email !== req.decoded.email) {
+    return res.status(403).send({ message: 'forbidden access' })
+  }
+  const query={email};
+  const result=await rejectedTrainerCollection.findOne(query);
+  res.send(result)
+})
+
 //all trainer
 app.get("/trainers",async(req,res)=>{
   const result=await trainerCollection.find().toArray();
@@ -191,8 +212,8 @@ app.get("/trainer/:id",async(req,res)=>{
 })
 
 //delete trainer
-// Delete trainer route
-app.delete('/deletetrainer/:id', async (req, res) => {
+
+app.delete('/deletetrainer/:id',verifyToken,verifyAdmin, async (req, res) => {
   const id = req.params.id;
   const query = { _id: new ObjectId(id) };
 
