@@ -6,7 +6,10 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 // middleware
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173', // Replace with your frontend URL
+  credentials: true, // If using cookies
+}));
 app.use(express.json());
 
 
@@ -58,6 +61,8 @@ async function run() {
     const subscriptionCollection=database.collection('subscription');
     const classCollection=database.collection('class');
     const rejectedTrainerCollection=database.collection('reject');
+    const forumCollection=database.collection('forum');
+    const slotCollection=database.collection('slot')
     // middlewares
     // use verify admin after verifyToken
   const verifyAdmin = async (req, res, next) => {
@@ -82,6 +87,20 @@ async function run() {
     }
     next();
   }
+
+//verify member
+// use verify admin after verifyToken
+const verifyMember = async (req, res, next) => {
+  const email = req.decoded.email;
+  const query = { email: email };
+  const user = await userCollection.findOne(query);
+  const isMember = user?.role === 'member';
+  if (!isMember) {
+    return res.status(403).send({ message: 'forbidden access' });
+  }
+  next();
+}  
+// 
 // ================================================================================= User Data=======
 // jwt
 app.post("/jwt",async(req,res)=>{
@@ -112,6 +131,13 @@ app.get("/users/role/:email",async(req,res)=>{
   const result=await userCollection.findOne({email});
   res.send({role:result?.role});
 })
+//profile
+app.get("/profile/:email",verifyToken,verifyMember,async(req,res)=>{
+  const email=req.params.email;
+  const query={email}
+  const result=await userCollection.findOne(query);
+  res.send(result)
+});
 
 // ============================================================================================================================================Admin========================================================================================
 //accept trainer
@@ -168,6 +194,8 @@ app.post("/accepttrainer", async (req, res) => {
       return res.status(500).send({ error: "Failed to delete trainer application" });
     }
 
+  
+
     // Send success response
     res.send(insertToTrainer);
 
@@ -183,6 +211,11 @@ app.post("/rejecttrainer",verifyToken,verifyAdmin,async(req,res)=>{
  const result=await rejectedTrainerCollection.insertOne(data);
  const query={email:data.email};
 const deleteApplicant=await appliedTrainerCollection.deleteOne(query);
+//update status in user collection
+const updateUserStatus={
+  $set:{status:"rejected"}
+}
+const updateUserResult=await userCollection.updateOne(query,updateUserStatus);
  res.send(result);
 });
 
@@ -210,6 +243,17 @@ app.get("/trainer/:id",async(req,res)=>{
   const result=await trainerCollection.findOne(query);
   res.send(result);
 })
+
+app.get("/trainerr/:email", verifyToken,verifyTrainer, async (req, res) => {
+  const email = req.params.email;
+  const query = { email };
+  const result = await trainerCollection.findOne(query);
+  if (!result) {
+    return res.status(404).send({ message: "Trainer not found" });
+  }
+  res.send(result);
+});
+
 
 //delete trainer
 
@@ -269,18 +313,31 @@ app.get('/newsletter',async(req,res)=>{
 })
 
 //add class
-app.post("/addclasses",verifyToken,verifyAdmin,async(req,res)=>{
+app.post("/addclasses",verifyToken,async(req,res)=>{
   const data=req.body;
   const result=await classCollection.insertOne(data);
   res.send(result);
 })
 
+app.get("/class",verifyToken,async(req,res)=>{
+  const result=await classCollection.find().toArray();
+  res.send(result)
+})
 
 
 
 // ============================================================================================================================================Trainer========================================================================================
 app.post("/appliedtrainer",async(req,res)=>{
   const applicationData=req.body;
+   //check if trainer exists already in trainerApplication collection
+   const isExists=await appliedTrainerCollection.findOne({email:applicationData.email});
+   if(isExists){
+       return res.send({
+           message:"Application already exists",
+           insertedId:null
+       })
+   }
+
   const result=await appliedTrainerCollection.insertOne(applicationData);
   res.send(result);
 })
@@ -299,9 +356,31 @@ app.get("/appliedtrainerdetails/:id",verifyToken,verifyAdmin,async(req,res)=>{
 })
 
 
+//forum 
+app.post("/forum",async(req,res)=>{
+  const data=req.body;
+  const result=await forumCollection.insertOne(data);
+  res.send(result)
+})
 
+app.get("/forum",async(req,res)=>{
+  
+  const result=await forumCollection.find().toArray()
+  res.send(result)
+})
 
+//adding slot
+app.post('/slots',verifyToken,verifyTrainer,async(req,res)=>{
+  const data=req.body;
+  const result=await slotCollection.insertOne(data);
+  res.send(result);
+})
 
+// app.get('/slots/:email',verifyToken,async(req,res)=>{
+//   const email=req.params.email;
+//   const query={email}
+//   const result=await slotCollection.findOne(email);
+// })
 
 
 
