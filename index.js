@@ -1,9 +1,10 @@
 const express = require('express')
-const app = express()
+const app = express();
 const port = process.env.PORT||3000;
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // middleware
 app.use(cors({
@@ -62,7 +63,8 @@ async function run() {
     const classCollection=database.collection('class');
     const rejectedTrainerCollection=database.collection('reject');
     const forumCollection=database.collection('forum');
-    const slotCollection=database.collection('slot')
+    const slotCollection=database.collection('slot');
+    const bookedTrainerCollection=database.collection('bookedTrainer')
     // middlewares
     // use verify admin after verifyToken
   const verifyAdmin = async (req, res, next) => {
@@ -319,7 +321,7 @@ app.post("/addclasses",verifyToken,async(req,res)=>{
   res.send(result);
 })
 
-app.get("/class",verifyToken,async(req,res)=>{
+app.get("/class",async(req,res)=>{
   const result=await classCollection.find().toArray();
   res.send(result)
 })
@@ -370,21 +372,61 @@ app.get("/forum",async(req,res)=>{
 })
 
 //adding slot
-app.post('/slots',verifyToken,verifyTrainer,async(req,res)=>{
+app.post('/slots',async(req,res)=>{
   const data=req.body;
   const result=await slotCollection.insertOne(data);
   res.send(result);
 })
 
-// app.get('/slots/:email',verifyToken,async(req,res)=>{
-//   const email=req.params.email;
-//   const query={email}
-//   const result=await slotCollection.findOne(email);
-// })
+app.get('/slots/:email',async(req,res)=>{
+  const email=req.params.email;
+  const query={email}
+  const result=await slotCollection.find(query).toArray();
+  res.send(result)
+})
 
+// book trainer
+app.post('/bookedtrainer',verifyToken,async(req,res)=>{
+  const data=req.body;
+  const result=await bookedTrainerCollection.insertOne(data);
+  res.send(result);
+})
 
+//booked trainer
+app.get('/bookedtrainer/:email',verifyToken,async(req,res)=>{
+const email=req.params.email;
+const query={clientEmail:email};
+const result=await bookedTrainerCollection.find(query).toArray();
+res.send(result);
+})
 
+// booked slot
+app.get('/bookedslot/:email',verifyToken,async(req,res)=>{
+  const email=req.params.email;
+  const query={trainerEmail:email};
+  const result=await bookedTrainerCollection.find(query).toArray();
+  res.send(result);
+})
 
+// ============== Stripe payment ===========
+
+app.post("/create-payment-intent", async (req, res) => {
+  const { price } = req.body;
+  const amount = parseInt(price * 100);
+  console.log(amount, 'amount inside the intent')
+
+  // Create a PaymentIntent with the order amount and currency
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: amount,
+    currency: "usd",
+    // In the latest version of the API, specifying the `automatic_payment_methods` parameter is optional because Stripe enables its functionality by default.
+    payment_method_types: ['card'],
+  });
+
+  res.send({
+    clientSecret: paymentIntent.client_secret,
+  });
+});
 
 
 
