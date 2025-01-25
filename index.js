@@ -64,7 +64,8 @@ async function run() {
     const rejectedTrainerCollection=database.collection('reject');
     const forumCollection=database.collection('forum');
     const slotCollection=database.collection('slot');
-    const bookedTrainerCollection=database.collection('bookedTrainer')
+    const bookedTrainerCollection=database.collection('bookedTrainer');
+    const paymentCollection=database.collection('payment');
     // middlewares
     // use verify admin after verifyToken
   const verifyAdmin = async (req, res, next) => {
@@ -429,6 +430,30 @@ app.post("/create-payment-intent", async (req, res) => {
 });
 
 
+app.post('/payments', async (req, res) => {
+  const payment = req.body;
+
+  try {
+    // Insert payment into the collection
+    const paymentResult = await paymentCollection.insertOne(payment);
+
+    // Update class booking count
+    const query = { className: payment.trainerClass };
+    const update = {
+      $inc: {
+        bookingCount: 1,
+      },
+    };
+
+    const updateClassResult = await classCollection.updateOne(query, update);
+
+    // Send response
+    res.send({ paymentResult, updateClassResult });
+  } catch (error) {
+    console.error('Error processing payment:', error);
+    res.status(500).send({ message: 'Internal server error' });
+  }
+});
 
 
 
