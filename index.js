@@ -379,6 +379,14 @@ app.post('/slots',async(req,res)=>{
   res.send(result);
 })
 
+// delete slot
+app.delete("/deleteslot/:id",async(req,res)=>{
+  const id=req.params.id;
+  const query={_id: new ObjectId(id)};
+  const result=await slotCollection.deleteOne(query);
+  res.send(result)
+})
+
 app.get('/slots/:email',async(req,res)=>{
   const email=req.params.email;
   const query={email}
@@ -396,7 +404,7 @@ app.post('/bookedtrainer',verifyToken,async(req,res)=>{
 //booked trainer
 app.get('/bookedtrainer/:email',verifyToken,async(req,res)=>{
 const email=req.params.email;
-const query={clientEmail:email};
+const query={trainerEmail:email};
 const result=await bookedTrainerCollection.find(query).toArray();
 res.send(result);
 })
