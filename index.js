@@ -66,6 +66,7 @@ async function run() {
     const slotCollection=database.collection('slot');
     const bookedTrainerCollection=database.collection('bookedTrainer');
     const paymentCollection=database.collection('payment');
+    const reviewsCollection=database.collection("review")
     // middlewares
     // use verify admin after verifyToken
   const verifyAdmin = async (req, res, next) => {
@@ -322,10 +323,43 @@ app.post("/addclasses",verifyToken,async(req,res)=>{
   res.send(result);
 })
 
-app.get("/class",async(req,res)=>{
-  const result=await classCollection.find().toArray();
-  res.send(result)
-})
+app.get("/class", async (req, res) => {
+  const { search = "", page = 1, limit = 6 } = req.query;
+
+  const query = {
+    className: { $regex: search, $options: "i" },
+  };
+
+  const totalClasses = await classCollection.countDocuments(query);
+  const result = await classCollection
+    .find(query)
+    .skip((page - 1) * parseInt(limit))
+    .limit(parseInt(limit))
+    .toArray();
+
+  res.send({
+    totalClasses,
+    classes: result,
+  });
+});
+
+// latest classes
+
+app.get("/latestclass", async (req, res) => {
+  try {
+    const result = await classCollection
+      .find() 
+      .sort({ bookingCount: -1 }) 
+      .limit(6) 
+      .toArray(); 
+
+    res.send(result);
+  } catch (error) {
+    console.error("Error fetching latest classes:", error);
+    res.status(500).send({ error: "Failed to fetch latest classes" });
+  }
+});
+
 
 
 
@@ -366,12 +400,63 @@ app.post("/forum",async(req,res)=>{
   res.send(result)
 })
 
-app.get("/forum",async(req,res)=>{
-  
-  const result=await forumCollection.find().toArray()
+app.get("/forum", async (req, res) => {
+  const { page = 1, limit = 6 } = req.query;
+
+  const totalForums = await forumCollection.countDocuments();
+  const forums = await forumCollection
+    .find()
+    .skip((page - 1) * parseInt(limit))
+    .limit(parseInt(limit))
+    .toArray();
+
+  res.send({
+    totalForums,
+    forums,
+  });
+});
+
+// forum details
+app.get('/forumdetails/:id',async(req,res)=>{
+  const id=req.params.id;
+  const query={_id:new ObjectId(id)};
+  const result=await forumCollection.findOne(query);
   res.send(result)
 })
+app.get("/latestforum", async (req, res) => {
+  try {
+    const result = await forumCollection
+      .find() 
+      .sort({ _id: -1 }) 
+      .limit(6) 
+      .toArray(); 
 
+    res.send(result);
+  } catch (error) {
+    console.error("Error fetching latest classes:", error);
+    res.status(500).send({ error: "Failed to fetch latest classes" });
+  }
+});
+
+// Upvote
+app.patch("/upvoat/:id", async (req, res) => {
+  const { id } = req.params;
+  const result = await forumCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $inc: { vote: 1 } }
+  );
+  res.send(result);
+});
+
+// Downvote
+app.patch("/downvoat/:id", async (req, res) => {
+  const { id } = req.params;
+  const result = await forumCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $inc: { vote: -1 } }
+  );
+  res.send(result);
+});
 //adding slot
 app.post('/slots',async(req,res)=>{
   const data=req.body;
@@ -401,12 +486,23 @@ app.post('/bookedtrainer',verifyToken,async(req,res)=>{
   res.send(result);
 })
 
-//booked trainer
+//booked slot in trainer dashboard rout
 app.get('/bookedtrainer/:email',verifyToken,async(req,res)=>{
 const email=req.params.email;
 const query={trainerEmail:email};
 const result=await bookedTrainerCollection.find(query).toArray();
 res.send(result);
+});
+
+//booked trainer by member
+app.get('/memberbookedtrainer/:email',verifyToken,verifyMember,async(req,res)=>{
+  const email=req.params.email;
+  if (email !== req.decoded.email) {
+    return res.status(403).send({ message: 'forbidden access' })
+  }
+  const query={clientEmail:email};
+  const result=await bookedTrainerCollection.find(query).toArray();
+  res.send(result);
 })
 
 // booked slot
@@ -416,6 +512,9 @@ app.get('/bookedslot/:email',verifyToken,async(req,res)=>{
   const result=await bookedTrainerCollection.find(query).toArray();
   res.send(result);
 })
+
+
+// ============================================================================================================================================Trainer========================================================================================
 
 // ============== Stripe payment ===========
 
@@ -463,6 +562,70 @@ app.post('/payments', async (req, res) => {
   }
 });
 
+// balance
+app.get("/payment",async(req,res)=>{
+ const result=await paymentCollection.find().toArray();
+ res.send(result);
+})
+
+app.get('/latestpayments',async(req,res)=>{
+  try {
+    const result = await bookedTrainerCollection
+      .find() 
+      .sort({ _id: -1 }) 
+      .limit(6) 
+      .toArray(); 
+
+    res.send(result);
+  } catch (error) {
+    console.error("Error fetching latest classes:", error);
+    res.status(500).send({ error: "Failed to fetch latest classes" });
+  }
+})
+
+// submit review
+app.post("/submit-review", async (req, res) => {
+  const { trainerId, feedback, rating,userName,userImage } = req.body;
+
+  try {
+    const result = await reviewsCollection.insertOne({
+      trainerId,
+      feedback,
+      rating,
+      userImage,
+      userName,
+      createdAt: new Date(),
+    });
+    res.status(201).send(result);
+  } catch (error) {
+    res.status(500).send({ error: "Failed to submit review." });
+  }
+});
+
+app.get('/review',async(req,res)=>{
+  const result=await reviewsCollection.find().toArray();
+  res.send(result);
+})
+
+//fetch trainer by class name
+app.get('/classtrainer/:className', async (req, res) => {
+  try {
+    const className = decodeURIComponent(req.params.className);
+    const slots = await slotCollection.find({ className }).toArray();
+
+    if (!slots.length) {
+      return res.status(404).json({ message: 'No slots found for this class' });
+    }
+
+    const trainerIds = slots.map((slot) => new ObjectId(slot.trainerId));
+    const trainers = await trainerCollection.find({ _id: { $in: trainerIds } }).toArray();
+
+    res.status(200).json(trainers);
+  } catch (error) {
+    console.error('Error fetching trainers:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
 
 
 
