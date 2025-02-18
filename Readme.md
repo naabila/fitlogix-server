@@ -3,6 +3,8 @@
 This is the server-side repository for the Gym Management System, a web application that facilitates managing trainers, classes, members, bookings, payments, and forums. The backend is built using **Node.js**, **Express**, and **MongoDB**.
 
 ---
+https://assignment-12-f508a.web.app
+![Fitlogix Home Screenshot](https://github.com/naabila/fitlogix-server/blob/master/Fitloxix-home-02-09-2025_11_00_PM.png?raw=true)
 
 ## Features
 
